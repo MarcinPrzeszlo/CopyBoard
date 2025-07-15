@@ -1,44 +1,34 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
-
 global ActiveHotkeys := Map() 
-global DefaultFolderPath := A_ScriptDir . "\Files"
-global DefaultShowGuiHotkey := "^!1"
 
 global IsGuiShowed := false
+global FolderPath := GetDefaultFolderPath()
 
-global FolderPath := IniRead("config.ini", "Settings", "AbsoluteFolderPath", DefaultFolderPath)
 ShowGuiHotkey := IniRead("config.ini", "Settings", "ShowGuiHotkey", "^!1")
-
-
-if (FolderPath == "")    
-    FolderPath := DefaultFolderPath
 if (ShowGuiHotkey == "")    
-    ShowGuiHotkey := DefaultShowGuiHotkey
+    ShowGuiHotkey := "^!1"
+
 
 ^!1::ToggleMenu()
 
 ToggleMenu(){
-    if (IsGuiShowed){
+    if (IsGuiShowed)
         CleanExit()
-    }
-    else{
+    else
         ShowMenu()
-    }
 }
 
 ShowMenu() {
-    global ActiveHotkeys, FolderPath, IsGuiShowed, DefaultFolderPath
-    global MyGui := Gui(, "Kopiejka")
+    global ActiveHotkeys, FolderPath, IsGuiShowed
     
-    ; Clean up any existing hotkeys before creating new ones
-    
-    ; Main GUI
+    global MyGui := Gui("+AlwaysOnTop -MinimizeBox", "Kopiejka")
     MyGui.OnEvent("Close", CleanExit)
     MyGui.OnEvent("Escape", CleanExit)
+
     ;MyGui.SetFont(, "")
-    MyGui.SetFont(, "MS Sans Serif")
+    ;MyGui.SetFont(, "MS Sans Serif")
 
     ; Get all files in the folder
     Files := []
@@ -51,11 +41,12 @@ ShowMenu() {
     }
 
     if (Files.Length = 0) {
-        MsgBox("No files found in the selected folder. Default folder path is " . DefaultFolderPath, "Info", "Iconi")
+        MsgBox("No files found in folder " . FolderPath, "Info", "Iconi")
     }
 
-    ; Create buttons for each file
     ; Dodac druga kolum ne z bindowaniem do Fxx
+
+    ; Create buttons for each file
     for Index, FilePath in Files {
 
         SplitPath(FilePath, &FileName)
@@ -64,17 +55,20 @@ ShowMenu() {
         if (Index < 10) {
             FileName := Index . ". " . FileName
         }
-        else{
+        else if (Index < 21) {
+            FileName := "F" . Index - 9 . ". " . FileName
+        }
+        else {
             FileName := "   " . FileName
         }
 
+        callback := ((f) => (*) => CopyFileContent(f))(FilePath)
+
         Btn := MyGui.Add("Button", "w150 h50 +Theme Left", "  " . FileName)
-        Btn.OnEvent("Click", ((f) => (*) => CopyFileContent(f))(FilePath))
+        Btn.OnEvent("Click", callback)
         
         ; Hotkey def
         if (Index < 10) {    
-            callback := ((f) => (*) => CopyFileContent(f))(FilePath)
-
             hotkeyNameNumpad := "Numpad" . Index
             hotkeyNameNumeric := Index
             
@@ -86,15 +80,22 @@ ShowMenu() {
             Hotkey(hotkeyNameNumeric,"On")  
             ActiveHotkeys[hotkeyNameNumeric] := callback
         }
+        else if (Index < 21){  
+            hotkeyNameFunction := "F" . Index - 9
 
+            Hotkey(hotkeyNameFunction, callback)      
+            Hotkey(hotkeyNameFunction,"On")  
+            ActiveHotkeys[hotkeyNameFunction] := callback
+        }
     }
 
-    MyGui.Add("Button", "w150 h50 +Theme", "Change folder").OnEvent("Click", ChangeFolderPath)
-    ; dodac return2defaultFolder
+    MyGui.Add("Button", "y+10 w90 h50 +Theme", "Change folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))(""))
+    MyGui.Add("Button", "x+15 w45 h50 +Theme", "Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
 
     MyGui.Show()
     IsGuiShowed := true
 }
+
 
 CopyFileContent(FilePath) {
     try {
@@ -107,6 +108,7 @@ CopyFileContent(FilePath) {
     CleanExit()
 }
 
+
 CleanExit(*) {
     global ActiveHotkeys, IsGuiShowed
     
@@ -114,20 +116,35 @@ CleanExit(*) {
     for hotkeyName, callback in ActiveHotkeys {
         try Hotkey(hotkeyName, "Off")
     }
+
     ActiveHotkeys.Clear()
-    myGui.Hide()
+    MyGui.Hide()
     IsGuiShowed := false
 }
 
 
-
-ChangeFolderPath(*) {
+ChangeFolderPath(option) {
     global FolderPath
     CleanExit()
+    
+    if (option != "default")
+        SelectedPath := DirSelect("*" A_ScriptDir, 3, "Select a folder containing files")
 
-    SelectedPath := DirSelect("*" A_ScriptDir, 3, "Select a folder containing files")
-    if (SelectedPath != "") {
-        FolderPath := SelectedPath
-        ShowMenu()
-    }
+    if (option == "default" || SelectedPath == "")
+        SelectedPath := GetDefaultFolderPath()
+    
+    FolderPath := SelectedPath
+    ShowMenu()
 }
+
+
+GetDefaultFolderPath(*) {
+    DefaultFolderPath := A_ScriptDir . "\Files"
+    Path := IniRead("config.ini", "Settings", "AbsoluteFolderPath", DefaultFolderPath)
+    
+    if (Path == "")    
+        Path := DefaultFolderPath
+        
+    return Path
+}
+
