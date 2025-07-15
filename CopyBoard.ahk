@@ -2,18 +2,17 @@
 #SingleInstance Force
 
 global ActiveHotkeys := Map() 
+global FolderPath := GetDefaultFolderPath()
 
 global IsGuiShowed := false
-global FolderPath := GetDefaultFolderPath()
 global BtnWidth := 150
 global BtnStyle := " h50 +Theme "
+global ToggleMenuHotkey := IniRead("config.ini", "Settings", "ToggleMenuHotkey", "^!1")
+if (ToggleMenuHotkey == "")    
+    ToggleMenuHotkey := "^!1"
 
-ShowGuiHotkey := IniRead("config.ini", "Settings", "ShowGuiHotkey", "^!1")
-if (ShowGuiHotkey == "")    
-    ShowGuiHotkey := "^!1"
-
-
-^!1::ToggleMenu()
+toggleCallback := (() => (*) => ToggleMenu())()
+Hotkey(ToggleMenuHotkey,toggleCallback)
 
 ToggleMenu(){
     if (IsGuiShowed)
@@ -25,12 +24,10 @@ ToggleMenu(){
 ShowMenu() {
     global ActiveHotkeys, FolderPath, IsGuiShowed
     
-    global MyGui := Gui("+AlwaysOnTop -MinimizeBox", "Kopiejka")
+    global MyGui := Gui("+AlwaysOnTop -MinimizeBox", "CopyBoard")
     MyGui.SetFont("w300")
     MyGui.OnEvent("Close", CleanExit)
     MyGui.OnEvent("Escape", CleanExit)
-
- 
 
     ; Get all files in the folder
     Files := []
