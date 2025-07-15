@@ -5,6 +5,8 @@ global ActiveHotkeys := Map()
 
 global IsGuiShowed := false
 global FolderPath := GetDefaultFolderPath()
+global BtnWidth := 150
+global BtnStyle := " h50 +Theme "
 
 ShowGuiHotkey := IniRead("config.ini", "Settings", "ShowGuiHotkey", "^!1")
 if (ShowGuiHotkey == "")    
@@ -24,11 +26,11 @@ ShowMenu() {
     global ActiveHotkeys, FolderPath, IsGuiShowed
     
     global MyGui := Gui("+AlwaysOnTop -MinimizeBox", "Kopiejka")
+    MyGui.SetFont("w300")
     MyGui.OnEvent("Close", CleanExit)
     MyGui.OnEvent("Escape", CleanExit)
 
-    ;MyGui.SetFont(, "")
-    ;MyGui.SetFont(, "MS Sans Serif")
+ 
 
     ; Get all files in the folder
     Files := []
@@ -44,8 +46,7 @@ ShowMenu() {
         MsgBox("No files found in folder " . FolderPath, "Info", "Iconi")
     }
 
-    ; Dodac druga kolum ne z bindowaniem do Fxx
-
+    
     ; Create buttons for each file
     for Index, FilePath in Files {
 
@@ -55,7 +56,7 @@ ShowMenu() {
         if (Index < 10) {
             FileName := Index . ". " . FileName
         }
-        else if (Index < 21) {
+        else if (Index < 22) {
             FileName := "F" . Index - 9 . ". " . FileName
         }
         else {
@@ -64,10 +65,14 @@ ShowMenu() {
 
         callback := ((f) => (*) => CopyFileContent(f))(FilePath)
 
-        Btn := MyGui.Add("Button", "w150 h50 +Theme Left", "  " . FileName)
+        if (Index - ((Index // 10)*10) == 0)
+            MyGui.Add("Text", "y-0 w150 h1", " ")
+
+
+        Btn := MyGui.Add("Button", "w" . BtnWidth . BtnStyle . "Left", "  " . FileName)
         Btn.OnEvent("Click", callback)
         
-        ; Hotkey def
+        ; Hotkey def for 1-9
         if (Index < 10) {    
             hotkeyNameNumpad := "Numpad" . Index
             hotkeyNameNumeric := Index
@@ -80,20 +85,29 @@ ShowMenu() {
             Hotkey(hotkeyNameNumeric,"On")  
             ActiveHotkeys[hotkeyNameNumeric] := callback
         }
-        else if (Index < 21){  
+        ; Hotkey def for F1-F12
+        else if (Index < 22){  
             hotkeyNameFunction := "F" . Index - 9
 
             Hotkey(hotkeyNameFunction, callback)      
             Hotkey(hotkeyNameFunction,"On")  
             ActiveHotkeys[hotkeyNameFunction] := callback
         }
+
+        if (Index == 9)
+            AddFolderButtons()
     }
 
-    MyGui.Add("Button", "y+10 w90 h50 +Theme", "Change folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))(""))
-    MyGui.Add("Button", "x+15 w45 h50 +Theme", "Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
+    if (Files.Length < 9)
+        AddFolderButtons()
 
     MyGui.Show()
     IsGuiShowed := true
+
+    AddFolderButtons(){
+        MyGui.Add("Button", "w65" . BtnStyle, "change folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))(""))
+        MyGui.Add("Button", "x+20 w65" . BtnStyle, "default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
+    }
 }
 
 
