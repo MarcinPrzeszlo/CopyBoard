@@ -10,8 +10,6 @@ Features
     Simple and clean user interface
     No file extension validation 
     
-    // not yet - Supports multiple text formats including .txt, .ahk, .json, .csv, .sql
-
 
 Configuration - Edit the config.ini file to customize behavior:
     AbsoluteFolderPath      - define default folder
