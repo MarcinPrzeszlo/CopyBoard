@@ -4,6 +4,8 @@ A lightweight text snippet manager for AutoHotkey v2 that provides quick access 
 
 Features
 - Instant GUI access to all text files in a specified folder
+- Direct snippet insertion into active window 
+- Copy snippet to clipboard
 - Hotkey suport for the first 18 files while the GUI is displayed
 - Search functionality for files by name
 - Simple and clean user interface
@@ -11,9 +13,10 @@ Features
     
 
 Configuration - Edit the config.ini file to customize behavior:
-- ToggleMenuHotkey  	<- define menu toggling hotkey
-- DefaultFolderPath     <- define default folder
-
+- ToggleMenuHotkey  	        
+- DefaultFolderPath             
+- InsertSnippetIntoActiveWin    
+- CopySnippetIntoClipboard
         
         https://www.autohotkey.com/docs/v2/KeyList.htm
         Modifiers:

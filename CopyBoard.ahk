@@ -3,12 +3,20 @@
 
 GetConfigs()
 A_TrayMenu.Add("Toggle menu",(*) => ToggleMenu())
+
 Hotkey(toggleMenuHotkey,(*) => ToggleMenu())
 ToggleMenu() {
+    global activeWinId := ""
+
     if (isGuiShowed)
         CleanExit()
-    else
+    else{
+        activeWinId := WinExist("A")
         ShowMenu()
+
+        if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
+            ShowMsgBox("disabled")
+    }
 }
 
 ShowMenu() {
@@ -25,14 +33,22 @@ ShowMenu() {
     FileMenu.Add("Open &Folder in file explorer", (*) => Run(folderPath)) 
     FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
     FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
+
     SearchMenu := Menu()
     SearchMenu.Add("&Serach for snippet",((*) => ShowSearchGui()))
     SearchMenu.Add("&Clear search input",((f) => (*) => SearchForSnippets(f))(""))
+
+    SettingsMenu := Menu()
+    SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
+    SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
+    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("settings"))
+
     HelpMenu := Menu()
     HelpMenu.Add("&About", (*) => MsgBox(aboutContent, "About", "OK 0x40000"))
     Menus := MenuBar()
     Menus.Add("&File", FileMenu)
-    Menus.Add("&Search",SearchMenu)
+    Menus.Add("&Search", SearchMenu)
+    Menus.Add("Settings", SettingsMenu)
     Menus.Add("&Help", HelpMenu)
     MainGui.MenuBar := Menus
 
@@ -60,7 +76,7 @@ ShowMenu() {
             RefreshMenu()
         }
         else{
-            MainGui.Add("Button","Default w110 h60","Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
+            MainGui.Add("Button","Default w180 h60","Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
         }
     }
 
@@ -93,7 +109,7 @@ ShowMenu() {
         }
 
         callback := ((f) => (*) => CopyFileContent(f))(filePath)
-        MainGui.Add("Button", "w150 h50 +Theme Left", "  " . fileName).OnEvent("Click", callback)
+        MainGui.Add("Button", "w180 h50 +Theme Left", "  " . fileName).OnEvent("Click", callback)
 
         maxRowsInCol := 9 * (Files.Count // (9 * 10) + 1)
 
@@ -128,12 +144,33 @@ ShowMenu() {
 
 
 CopyFileContent(filePath) {
+    prevClipboardContent := A_Clipboard
+    A_Clipboard := ""
+
     try {
-        Content := FileRead(filePath, "UTF-8")
-        A_Clipboard := Content
+        A_Clipboard := FileRead(filePath, "UTF-8")
+        if !ClipWait(1){
+            MsgBox "Clipboard copy timed out!"
+            return
+        }
+
+        ;MsgBox A_Clipboard
     } catch as Err {
         MsgBox("Failed to read file:`n" filePath "`n`nError: " Err.Message, "Error", "Icon!")
     }
+  
+    if (insertSnippetIntoActiveWin == 1){
+        try{
+            WinActivate activeWinId
+            Send "^v"
+        }
+    }
+
+    if (copySnippetIntoClipboard != 1){
+        Sleep 100
+        A_Clipboard := prevClipboardContent
+    }    
+
     CleanExit()
 }
 
@@ -207,6 +244,37 @@ SearchForSnippets(phrase) {
     RefreshMenu()
 }
 
+ToggleSetting(name){
+    global insertSnippetIntoActiveWin, copySnippetIntoClipboard
+
+    if (name == "insertSnippetIntoActiveWin"){
+        if (insertSnippetIntoActiveWin == 1)
+            insertSnippetIntoActiveWin := 0
+        else
+            insertSnippetIntoActiveWin := 1
+    }
+
+    if (name == "copySnippetIntoClipboard"){
+        if (copySnippetIntoClipboard == 1)
+            copySnippetIntoClipboard := 0
+        else
+            copySnippetIntoClipboard := 1
+    }
+
+    if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
+        ShowMsgBox("disabled")
+}
+
+ShowMsgBox(info){
+    if (info == "disabled")
+        MsgBox "Basic features disabled", "Warning", "Icon! " . 0x40000 	
+    else if (info == "settings"){
+        settingsMsg :=  "insertSnippetIntoActiveWin - " . insertSnippetIntoActiveWin .
+                        "`ncopySnippetIntoClipboard - " . copySnippetIntoClipboard
+
+        MsgBox settingsMsg, "Settings", "Iconi " . 0x40000 	
+    }
+}
 
 GetConfigs(*) {
     path := A_ScriptDir . "\Files"
@@ -219,6 +287,15 @@ GetConfigs(*) {
     global toggleMenuHotkey := IniRead("config.ini", "Settings", "ToggleMenuHotkey", defaultToggleMenuHotkey)
     if (toggleMenuHotkey == "")    
         toggleMenuHotkey := defaultToggleMenuHotkey
+
+    global insertSnippetIntoActiveWin := IniRead("config.ini", "Settings", "InsertSnippetIntoActiveWin", 0)
+    if (insertSnippetIntoActiveWin == "")    
+        insertSnippetIntoActiveWin := 0
+
+    global copySnippetIntoClipboard := IniRead("config.ini", "Settings", "CopySnippetIntoClipboard", 1)
+    if (copySnippetIntoClipboard == "")    
+        copySnippetIntoClipboard := 1
+
 
     global searchPhrase := ""
     global fileOrderingSeparator := "$"
