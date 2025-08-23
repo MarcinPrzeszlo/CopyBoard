@@ -57,7 +57,6 @@ ShowMenu() {
 
         if (searchPhrase != ""){
             searchPhrase := ""
-            GetConfigs()
             RefreshMenu()
         }
         else{
@@ -171,7 +170,7 @@ ChangeFolderPath(option) {
             folderPath := selectedPath
     }
     else if (option == "default")
-        GetConfigs()
+        folderPath := defaultFolderPath
 
     ShowMenu()
 }
@@ -210,10 +209,11 @@ SearchForSnippets(phrase) {
 
 
 GetConfigs(*) {
-    defaultFolderPath := A_ScriptDir . "\Files"
-    global folderPath := IniRead("config.ini", "Settings", "DefaultFolderPath", defaultFolderPath)
-    if (folderPath == "")
-        folderPath := defaultFolderPath
+    path := A_ScriptDir . "\Files"
+    global defaultFolderPath := IniRead("config.ini", "Settings", "DefaultFolderPath", path)
+    if (defaultFolderPath == "")
+        defaultFolderPath := path
+    global folderPath := defaultFolderPath
     
     defaultToggleMenuHotkey := "+^q"
     global toggleMenuHotkey := IniRead("config.ini", "Settings", "ToggleMenuHotkey", defaultToggleMenuHotkey)
