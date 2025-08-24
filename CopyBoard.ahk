@@ -2,10 +2,10 @@
 #SingleInstance Force               
 
 GetConfigs()
-A_TrayMenu.Add("Toggle menu",(*) => ToggleMenu())
 
+A_TrayMenu.Add("Toggle menu",(*) => ToggleMenu())
 Hotkey(toggleMenuHotkey,(*) => ToggleMenu())
-ToggleMenu() {
+ToggleMenu(){
     global activeWinId := ""
 
     if (isGuiShowed)
@@ -15,24 +15,28 @@ ToggleMenu() {
         ShowMenu()
 
         if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
-            ShowMsgBox("disabled")
+            ShowMsgBox("Warning")
     }
 }
 
-ShowMenu() {
-    global activeHotkeys, isGuiShowed, searchPhrase
+ShowMenu(){
+    global isGuiShowed
     global activeHotkeys := Map() 
 
     global MainGui := Gui("+AlwaysOnTop -MinimizeBox", scirptName)
-    MainGui.SetFont("w400")
+    MainGui.SetFont("w500")
     MainGui.OnEvent("Close", CleanExit)
     MainGui.OnEvent("Escape", CleanExit)
 
     ; Menu bar configuration
     FileMenu := Menu()
-    FileMenu.Add("Open &Folder in file explorer", (*) => Run(folderPath)) 
+    FileMenu.Add("Open &folder in file explorer", (*) => Run(folderPath)) 
     FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
     FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
+    FileMenu.Add("P&arent folder", ((f) => (*) => ChangeFolderPath(f))("parent"))
+    FileMenu.Add("---", ((*) => Sleep(1)))
+    FileMenu.Add("Hide menu", CleanExit)
+    FileMenu.Add("Close app", (*) => (SetTimer(ExitApp.Bind(), -100)))
 
     SearchMenu := Menu()
     SearchMenu.Add("&Serach for snippet",((*) => ShowSearchGui()))
@@ -41,101 +45,79 @@ ShowMenu() {
     SettingsMenu := Menu()
     SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
     SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
-    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("settings"))
+    SettingsMenu.Add("Toggle disableMainGuiHotkeys", ((f) => (*) => ToggleSetting(f))("disableMainGuiHotkeys"))
+    SettingsMenu.Add("Toggle hideMenuAfterUse", ((f) => (*) => ToggleSetting(f))("hideMenuAfterUse"))
+    SettingsMenu.Add("---", ((*) => Sleep(1)))
+    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("Settings"))
+    SettingsMenu.Add("About", ((f) => (*) => ShowMsgBox(f))("About"))
 
-    HelpMenu := Menu()
-    HelpMenu.Add("&About", (*) => MsgBox(aboutContent, "About", "OK 0x40000"))
     Menus := MenuBar()
     Menus.Add("&File", FileMenu)
     Menus.Add("&Search", SearchMenu)
     Menus.Add("Settings", SettingsMenu)
-    Menus.Add("&Help", HelpMenu)
     MainGui.MenuBar := Menus
 
-    ; Get files from selected folder
-    Files := Map()
-    try {
-        Loop Files, folderPath "\*.*" {
-            SplitPath(A_LoopFilePath, &name)
 
-            if (searchPhrase == "" || (InStr(name, searchPhrase) > 0)){
-                Files[A_LoopFilePath] := name
-            }
-                
+    files := GetFilesFromDirectory()
+    if (files.Length == 0)
+        MainGui.Add("Button","Default w150 h50","Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
 
-        }
-    } catch as Err {
-        MsgBox("Error reading files:`n" Err.Message, "Error", "Icon!")
-    }
-
-    if (Files.Count == 0) {
-        MsgBox("No files found!", "Info", "Iconi")
-
-        if (searchPhrase != ""){
-            searchPhrase := ""
-            RefreshMenu()
-        }
-        else{
-            MainGui.Add("Button","Default w180 h60","Default folder").OnEvent("Click", ((f) => (*) => ChangeFolderPath(f))("default"))
-        }
-    }
-
-    ; Create buttons for each file
+    
     rowCounter := 0
 
-
-    for filePath, fileName in Files {
-
+    ; Create buttons for each file
+    for index, File in Files {
         index := A_Index
         rowCounter := rowCounter + 1
-        
-        if (fileOrderingSeparator != "") {
-            FileOrderingEnd := InStr(fileName,  fileOrderingSeparator)
 
-            if (FileOrderingEnd > 0)
-                fileName := SubStr(fileName, FileOrderingEnd+StrLen( fileOrderingSeparator), StrLen(fileName))
-        }
-            
-        fileName := SubStr(fileName, 1, -4)  ; Remove extension
+        fileName := File.Name
+        filePath := File.FilePath
+        isFolder := File.IsFolder
 
-        if (index <= 9) {
+        if (index <= 9 && disableMainGuiHotkeys != 1){
             fileName := index . ". " . fileName
         }
-        else if (index <= 18) {
+        else if (index <= 18 && disableMainGuiHotkeys != 1){
             fileName := "F" . index - 9 . ". " . fileName
         }
         else {
             fileName := "   " . fileName
         }
 
-        callback := ((f) => (*) => CopyFileContent(f))(filePath)
-        MainGui.Add("Button", "w180 h50 +Theme Left", "  " . fileName).OnEvent("Click", callback)
+        if (isFolder == "D")
+            callback := ((f) => (*) => ChangeFolderPath(f))(filePath)
+        else
+            callback := ((f) => (*) => CopyFileContent(f))(filePath)
 
-        maxRowsInCol := 9 * (Files.Count // (9 * 10) + 1)
 
-        if (rowCounter == maxRowsInCol && index != Files.Count) {
+        MainGui.Add("Button", "w150 h50 +Theme Left", "  " . fileName).OnEvent("Click", callback)
+        maxRowsInCol := 9 * (Files.Length // (9 * 10) + 1)
+
+        if (rowCounter == maxRowsInCol && index != Files.Length){
             MainGui.Add("Text", "y-0 w150 h1", " ")
             rowCounter := 0
         }        
         
-        if (index <= 9) {                               ; Hotkey - 1-9 & num1-num9
-            try hotkeyNameNumpad := "Numpad" . index    
-            try hotkeyNameNumeric := index
+        if (disableMainGuiHotkeys != 1){
+            if (index <= 9){                               ; Hotkey - 1-9 & num1-num9
+                try hotkeyNameNumpad := "Numpad" . index    
+                try hotkeyNameNumeric := index
 
-            try Hotkey(hotkeyNameNumpad, callback)
-            try Hotkey(hotkeyNameNumpad,"On")
-            activeHotkeys[hotkeyNameNumpad] := callback
+                try Hotkey(hotkeyNameNumpad, callback)
+                try Hotkey(hotkeyNameNumpad,"On")
+                activeHotkeys[hotkeyNameNumpad] := callback
 
-            try Hotkey(hotkeyNameNumeric, callback)      
-            try Hotkey(hotkeyNameNumeric,"On")  
-            activeHotkeys[hotkeyNameNumeric] := callback
-        }
-        else if (index <= 18) {                         ; Hotkey - F1-F9
-            hotkeyNameFunction := "F" . index - 9       
+                try Hotkey(hotkeyNameNumeric, callback)      
+                try Hotkey(hotkeyNameNumeric,"On")  
+                activeHotkeys[hotkeyNameNumeric] := callback
+            }
+            else if (index <= 18){                         ; Hotkey - F1-F9
+                hotkeyNameFunction := "F" . index - 9       
 
-            try Hotkey(hotkeyNameFunction, callback)      
-            try Hotkey(hotkeyNameFunction,"On")  
-            activeHotkeys[hotkeyNameFunction] := callback
+                try Hotkey(hotkeyNameFunction, callback)      
+                try Hotkey(hotkeyNameFunction,"On")  
+                activeHotkeys[hotkeyNameFunction] := callback
+            }
         }
     }
     MainGui.Show()
@@ -143,25 +125,24 @@ ShowMenu() {
 }
 
 
-CopyFileContent(filePath) {
+CopyFileContent(filePath){
     prevClipboardContent := A_Clipboard
     A_Clipboard := ""
 
     try {
         A_Clipboard := FileRead(filePath, "UTF-8")
         if !ClipWait(1){
-            MsgBox "Clipboard copy timed out!"
+            MsgBox("Clipboard copy timed out!", "Error", "Icon!")
             return
         }
-
-        ;MsgBox A_Clipboard
     } catch as Err {
-        MsgBox("Failed to read file:`n" filePath "`n`nError: " Err.Message, "Error", "Icon!")
+        MsgBox("Failed to read file", "Error", "Icon!")
     }
-  
+
     if (insertSnippetIntoActiveWin == 1){
         try{
             WinActivate activeWinId
+            Sleep 100
             Send "^v"
         }
     }
@@ -171,14 +152,14 @@ CopyFileContent(filePath) {
         A_Clipboard := prevClipboardContent
     }    
 
-    CleanExit()
+    if (hideMenuAfterUse == 1)
+        CleanExit()
 }
 
 
-CleanExit(*) {
+CleanExit(*){
     global activeHotkeys, isGuiShowed
     
-    ; Unbind hotkeys
     for hotkeyName, callback in activeHotkeys {
         try Hotkey(hotkeyName, "Off")
     }
@@ -190,42 +171,51 @@ CleanExit(*) {
 }
 
 
-RefreshMenu(*) {
+RefreshMenu(){
     CleanExit()
     ShowMenu()
 }
 
 
-ChangeFolderPath(option) {
+ChangeFolderPath(option){
     global folderPath
     CleanExit()
     
-    if (option == "select") {
+    if (option == "select"){
         selectedPath := DirSelect("*" A_ScriptDir, 3, "Select a folder")
 
         if (selectedPath != "")
             folderPath := selectedPath
     }
-    else if (option == "default")
-        folderPath := defaultFolderPath
-
+    else if (option == "default"){
+        folderPath := defaultFolderPath   
+    }
+    else if (option == "parent"){
+        SplitPath folderPath, &filename, &parentDir
+        folderPath := parentDir
+    }
+    else{
+        folderPath := option
+    }
+    
     ShowMenu()
 }
 
 
-ShowSearchGui(*) {
+ShowSearchGui(){
     global SearchGui := Gui("AlwaysOnTop -MinimizeBox", "Insert snippet name")
     searchPhraseInput := SearchGui.Add("Edit", "w170 h20")
     SearchGui.Add("Button", "w50 h30 Default", "Search").OnEvent("Click", ((*) => SearchButtonClicked()))
     SearchGui.Add("Button", "w50 h30 x+10", "Clear").OnEvent("Click", ((f) => (*) => SearchForSnippets(f))(""))
     SearchGui.Add("Button", "w50 h30 x+10", "Cancel").OnEvent("Click", ((*) => SearchCancel()))
     SearchGui.Show()
+    SearchGui.OnEvent("Escape",SearchCancel)
 
     for hotkeyName, callback in activeHotkeys {
         try Hotkey(hotkeyName, "Off")
     }
 
-    SearchButtonClicked(*) {
+    SearchButtonClicked(){
         SearchForSnippets(searchPhraseInput.Value)
     }
 
@@ -238,45 +228,50 @@ ShowSearchGui(*) {
 }
 
 
-SearchForSnippets(phrase) {
+SearchForSnippets(phrase){
     global searchPhrase
     searchPhrase := phrase
     RefreshMenu()
 }
 
-ToggleSetting(name){
-    global insertSnippetIntoActiveWin, copySnippetIntoClipboard
+ToggleSetting(name) {
+    global
+    try { 
+        %name% := !%name%
+        
+        if (name == "disableMainGuiHotkeys")
+            RefreshMenu()
+        else if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
+            ShowMsgBox("Warning")
 
-    if (name == "insertSnippetIntoActiveWin"){
-        if (insertSnippetIntoActiveWin == 1)
-            insertSnippetIntoActiveWin := 0
-        else
-            insertSnippetIntoActiveWin := 1
+    } catch as Err {
+        MsgBox("An error occurred while changing the setting", "Error", "Icon!")
     }
-
-    if (name == "copySnippetIntoClipboard"){
-        if (copySnippetIntoClipboard == 1)
-            copySnippetIntoClipboard := 0
-        else
-            copySnippetIntoClipboard := 1
-    }
-
-    if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
-        ShowMsgBox("disabled")
 }
+
 
 ShowMsgBox(info){
-    if (info == "disabled")
-        MsgBox "Basic features disabled", "Warning", "Icon! " . 0x40000 	
-    else if (info == "settings"){
-        settingsMsg :=  "insertSnippetIntoActiveWin - " . insertSnippetIntoActiveWin .
-                        "`ncopySnippetIntoClipboard - " . copySnippetIntoClipboard
-
-        MsgBox settingsMsg, "Settings", "Iconi " . 0x40000 	
+    msg := ""
+    if (info == "Warning"){
+        msg := "No output method enabled. Snippets won't be inserted or copied"
     }
+    else if (info == "Settings"){
+        msg :=  "insertSnippetIntoActiveWin - " . insertSnippetIntoActiveWin .
+                "`ncopySnippetIntoClipboard - " . copySnippetIntoClipboard .
+                "`ndisableMainGuiHotkeys - " . disableMainGuiHotkeys .
+                "`nhideMenuAfterUse - " . hideMenuAfterUse
+    }
+    else if (info == "About"){
+        msg :=  "Default folder path`n  " . defaultFolderPath . "`n`n" . 
+                "Default toggle menu hotkey (can be done from systray)`n  Shift + Ctrl + Q`n`n" . 
+                "To use MenuBar press`n  Alt + {underlined letter of menubar option}`n`n" .
+                "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'" .
+                "`n`nDocJnt©"
+    }
+    MsgBox msg, info, "OK 0x40000"
 }
 
-GetConfigs(*) {
+GetConfigs(){
     path := A_ScriptDir . "\Files"
     global defaultFolderPath := IniRead("config.ini", "Settings", "DefaultFolderPath", path)
     if (defaultFolderPath == "")
@@ -289,20 +284,85 @@ GetConfigs(*) {
         toggleMenuHotkey := defaultToggleMenuHotkey
 
     global insertSnippetIntoActiveWin := IniRead("config.ini", "Settings", "InsertSnippetIntoActiveWin", 0)
-    if (insertSnippetIntoActiveWin == "")    
+    if (!IsBoolean(insertSnippetIntoActiveWin))   
         insertSnippetIntoActiveWin := 0
 
     global copySnippetIntoClipboard := IniRead("config.ini", "Settings", "CopySnippetIntoClipboard", 1)
-    if (copySnippetIntoClipboard == "")    
+    if (!IsBoolean(copySnippetIntoClipboard)) 
         copySnippetIntoClipboard := 1
 
+    global disableMainGuiHotkeys := IniRead("config.ini", "Settings", "DisableMainGuiHotkeys", 0)
+    if (!IsBoolean(disableMainGuiHotkeys)) 
+        disableMainGuiHotkeys := 0
+
+    global hideMenuAfterUse := IniRead("config.ini", "Settings", "HideMenuAfterUse", 1)
+    if (!IsBoolean(hideMenuAfterUse))   
+        hideMenuAfterUse := 1
+
+    IsBoolean(value){
+        if (value == "" || (value != "1" && value != "0"))
+            return 0
+        return 1
+    }
 
     global searchPhrase := ""
     global fileOrderingSeparator := "$"
     global isGuiShowed := false
     global scirptName := SubStr(A_ScriptName,1,InStr(A_ScriptName,'.')-1)
-    global aboutContent :=  "Default folder path`n  " . defaultFolderPath . "`n`n" . 
-                            "Default toggle menu hotkey`n  Shift + Ctrl + Q`n`n" . 
-                            "To use MenuBar press`n  Alt + {underlined letter of menubar option}`n`n" .
-                            "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File1', '24$File2' "
+}
+
+class Item{
+    __New(name, filePath, extension, isFolder){
+        this.Name := name
+        this.FilePath := filePath
+        this.Extension := extension
+        this.IsFolder := isFolder
+    }
+}
+
+GetFilesFromDirectory(){
+    global searchPhrase
+
+    Items := []
+    try {
+        Loop Files, folderPath "\*.*", "DF" {
+            SplitPath(A_LoopFilePath, &fileName)
+
+            if (InStr(FileGetAttrib(A_LoopFilePath),"H") == 0)
+            if (searchPhrase == "" || (InStr(fileName, searchPhrase) > 0)){
+                isFolder := DirExist(A_LoopFilePath)
+                extension := ""
+
+                if (!isFolder && StrLen(fileName) > 4) && InStr(fileName,".") > 0{
+                    fileName := SubStr(fileName, 1, -4)
+                    extension := SubStr(fileName, -4, 4)
+                }
+                
+                if (fileOrderingSeparator != ""){
+                    FileOrderingEnd := InStr(fileName,  fileOrderingSeparator)
+                
+                    if (FileOrderingEnd > 0)
+                        fileName := SubStr(fileName, FileOrderingEnd+StrLen( fileOrderingSeparator), StrLen(fileName))
+                }
+
+                if (isFolder)
+                    fileName := fileName . " [dir]"
+
+                Items.Push(Item(fileName, A_LoopFilePath, extension, isFolder))
+            }
+        }
+    } catch as Err {
+        MsgBox("Error reading files", "Error", "Icon!")
+    }
+
+    if (Items.Length == 0){
+        MsgBox("No files found!", "Info", "OK 0x40000")
+
+        if (searchPhrase != ""){
+            searchPhrase := ""
+            RefreshMenu()
+        }
+    }
+
+    return Items
 }
