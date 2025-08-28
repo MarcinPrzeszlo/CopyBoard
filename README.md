@@ -7,7 +7,7 @@ Features:
 - Direct snippet insertion into active window 
 - Copy snippet to clipboard
 - Hotkey support (1-9, F1-F9) for selecting the first 18 snippets while menu is open
-- Search functionality for files by name
+- Search for files by name
 - Simple and clean user interface
 - Configurable script behavior
 
