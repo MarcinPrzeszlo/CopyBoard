@@ -6,12 +6,12 @@ GetConfigs()
 A_TrayMenu.Add("Toggle menu",(*) => ToggleMenu())
 Hotkey(toggleMenuHotkey,(*) => ToggleMenu())
 ToggleMenu(){
-    global hActiveWnd := ""
+    global activeWinId := ""
 
     if (isGuiShowed)
         CleanExit()
     else{
-        hActiveWnd := WinExist("A")
+        activeWinId := WinExist("A")
         ShowMenu()
 
         if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
@@ -74,10 +74,10 @@ ShowMenu(){
         filePath := File.FilePath
         isFolder := File.IsFolder
 
-        if (index <= 9 && disableMainGuiHotkeys == 0){
+        if (index <= 9 && disableMainGuiHotkeys != 1){
             fileName := index . ". " . fileName
         }
-        else if (index <= 18 && disableMainGuiHotkeys == 0){
+        else if (index <= 18 && disableMainGuiHotkeys != 1){
             fileName := "F" . index - 9 . ". " . fileName
         }
         else {
@@ -98,7 +98,7 @@ ShowMenu(){
             rowCounter := 0
         }        
         
-        if (disableMainGuiHotkeys == 0){
+        if (disableMainGuiHotkeys != 1){
             if (index <= 9){                               ; Hotkey - 1-9 & num1-num9
                 try hotkeyNameNumpad := "Numpad" . index    
                 try hotkeyNameNumeric := index
@@ -128,34 +128,26 @@ ShowMenu(){
 CopyFileContent(filePath){
     prevClipboardContent := A_Clipboard
     A_Clipboard := ""
-    fileContent := ""
 
     try {
-        fileContent := FileRead(filePath, "UTF-8")
-        if (fileContent == ""){
-            ToolTip "File has no content"
-            SetTimer () => ToolTip(), -750  
-            return        
-        }
-
-        A_Clipboard := fileContent
-        if (!ClipWait(1)){
-            MsgBox("Clipboard copy timed out!", "Error", "Icon! 0x40000")
+        A_Clipboard := FileRead(filePath, "UTF-8")
+        if !ClipWait(1){
+            MsgBox("Clipboard copy timed out!", "Error", "Icon!")
             return
         }
     } catch as Err {
-        MsgBox("Failed to read file", "Error", "Icon! 0x40000")
+        MsgBox("Failed to read file", "Error", "Icon!")
     }
 
     if (insertSnippetIntoActiveWin == 1){
         try{
-            WinActivate hActiveWnd
+            WinActivate activeWinId
             Sleep 100
             Send "^v"
         }
     }
 
-    if (copySnippetIntoClipboard == 0){
+    if (copySnippetIntoClipboard != 1){
         Sleep 100
         A_Clipboard := prevClipboardContent
     }    
@@ -253,7 +245,7 @@ ToggleSetting(name) {
             ShowMsgBox("Warning")
 
     } catch as Err {
-        MsgBox("An error occurred while changing the setting", "Error", "Icon! 0x40000")
+        MsgBox("An error occurred while changing the setting", "Error", "Icon!")
     }
 }
 
@@ -307,7 +299,11 @@ GetConfigs(){
     if (!IsBoolean(hideMenuAfterUse))   
         hideMenuAfterUse := 1
 
-    IsBoolean(value) => value == true || value == false
+    IsBoolean(value){
+        if (value == "" || (value != "1" && value != "0"))
+            return 0
+        return 1
+    }
 
     global searchPhrase := ""
     global fileOrderingSeparator := "$"
@@ -343,10 +339,10 @@ GetFilesFromDirectory(){
                 }
                 
                 if (fileOrderingSeparator != ""){
-                    fileOrderingEnd := InStr(fileName,  fileOrderingSeparator)
+                    FileOrderingEnd := InStr(fileName,  fileOrderingSeparator)
                 
-                    if (fileOrderingEnd > 0)
-                        fileName := SubStr(fileName, fileOrderingEnd+StrLen( fileOrderingSeparator), StrLen(fileName))
+                    if (FileOrderingEnd > 0)
+                        fileName := SubStr(fileName, FileOrderingEnd+StrLen( fileOrderingSeparator), StrLen(fileName))
                 }
 
                 if (isFolder)
@@ -356,7 +352,7 @@ GetFilesFromDirectory(){
             }
         }
     } catch as Err {
-        MsgBox("Error reading files", "Error", "Icon! 0x40000")
+        MsgBox("Error reading files", "Error", "Icon!")
     }
 
     if (Items.Length == 0){
