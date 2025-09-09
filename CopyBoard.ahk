@@ -1,14 +1,9 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force               
-
 GetConfigs()
 
-A_IconTip := scirptName
-Tray := A_TrayMenu
-Tray.Delete()
-Tray.Add("&Toggle menu",(*) => ToggleMenu())
-Tray.Default := ("1&")
-Tray.Add("E&xit app",(*) => (SetTimer(ExitApp.Bind(), -100)))
+;----------------
+;--> GUIs section
 
 ToggleMenu(){
     global hActiveWnd := ""
@@ -24,6 +19,25 @@ ToggleMenu(){
     }
 }
 
+CleanExit(*){
+    global activeHotkeys, isGuiShowed, hActiveWnd
+    
+    for hotkeyName, callback in activeHotkeys {
+        try Hotkey(hotkeyName, "Off")
+    }
+
+    activeHotkeys.Clear()
+    MainGui.Hide()
+    isGuiShowed := false
+    try SearchGui.Destroy() 
+    hActiveWnd := ""
+}
+
+RefreshMenu(){
+    CleanExit()
+    ShowMenu()
+}
+
 ShowMenu(){
     global isGuiShowed
     global activeHotkeys := Map() 
@@ -32,35 +46,6 @@ ShowMenu(){
     MainGui.SetFont("w500")
     MainGui.OnEvent("Close", CleanExit)
     MainGui.OnEvent("Escape", CleanExit)
-
-    ; Menu bar configuration
-    FileMenu := Menu()
-    FileMenu.Add("Open &folder in file explorer", (*) => Run(folderPath)) 
-    FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
-    FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
-    FileMenu.Add("P&arent folder", ((f) => (*) => ChangeFolderPath(f))("parent"))
-    FileMenu.Add("---", ((*) => Sleep(1)))
-    FileMenu.Add("Hide menu", CleanExit)
-    FileMenu.Add("Exit app", (*) => (SetTimer(ExitApp.Bind(), -100)))
-
-    SearchMenu := Menu()
-    SearchMenu.Add("&Serach for snippet",((*) => ShowSearchGui()))
-    SearchMenu.Add("&Clear search input",((f) => (*) => SearchForSnippets(f))(""))
-
-    SettingsMenu := Menu()
-    SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
-    SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
-    SettingsMenu.Add("Toggle disableMainGuiHotkeys", ((f) => (*) => ToggleSetting(f))("disableMainGuiHotkeys"))
-    SettingsMenu.Add("Toggle hideMenuAfterUse", ((f) => (*) => ToggleSetting(f))("hideMenuAfterUse"))
-    SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
-    SettingsMenu.Add("---", ((*) => Sleep(1)))
-    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("Settings"))
-    SettingsMenu.Add("About", ((f) => (*) => ShowMsgBox(f))("About"))
-
-    Menus := MenuBar()
-    Menus.Add("&File", FileMenu)
-    Menus.Add("&Search", SearchMenu)
-    Menus.Add("Settings", SettingsMenu)
     MainGui.MenuBar := Menus
 
 
@@ -130,6 +115,51 @@ ShowMenu(){
     isGuiShowed := true
 }
 
+ShowSearchGui(){
+    global SearchGui := Gui("AlwaysOnTop -MinimizeBox", "Insert snippet name")
+    searchPhraseInput := SearchGui.Add("Edit", "w170 h20")
+    SearchGui.Add("Button", "w50 h30 Default", "Search").OnEvent("Click", ((*) => SearchButtonClicked()))
+    SearchGui.Add("Button", "w50 h30 x+10", "Clear").OnEvent("Click", ((f) => (*) => SearchForSnippets(f))(""))
+    SearchGui.Add("Button", "w50 h30 x+10", "Cancel").OnEvent("Click", ((*) => SearchCancel()))
+    SearchGui.Show()
+    SearchGui.OnEvent("Escape",SearchCancel)
+
+    for hotkeyName, callback in activeHotkeys {
+        try Hotkey(hotkeyName, "Off")
+    }
+
+    SearchButtonClicked(){
+        SearchForSnippets(searchPhraseInput.Value)
+    }
+
+    SearchCancel(*){
+        SearchGui.Destroy()
+        for hotkeyName, callback in activeHotkeys {
+            try Hotkey(hotkeyName, "On")
+        }
+    }
+}
+
+ShowMsgBox(info){
+    msg := ""
+    if (info == "Warning"){
+        msg := "No output method enabled. Snippets won't be inserted or copied"
+    }
+    else if (info == "Settings"){
+        msg :=  GetSettingsString()
+    }
+    else if (info == "About"){
+        msg :=  "Default toggle menu hotkey`n  Shift + Ctrl + Q`n`n" . 
+                "To use MenuBar press`n  Alt + {underlined letter of menubar option}`n`n" .
+                "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'" .
+                "`n`nDocJnt©"
+    }
+    MsgBox msg, info, "OK 0x40000"
+}
+
+;-------------------------
+;-> File retrieval section
+
 CopyFileContent(filePath){
     prevClipboardContent := A_Clipboard
     A_Clipboard := ""
@@ -153,31 +183,27 @@ CopyFileContent(filePath){
         MsgBox("Failed to read file", "Error", "Icon! 0x40000")
     }
 
+    if (insertSnippetIntoActiveWin == 1){
+        try{
+            WinActivate hActiveWnd
+            Sleep 100
+            Send "^v"
+        }
+    }
+
     if (copySnippetIntoClipboard == 0){
         Sleep 100
         A_Clipboard := prevClipboardContent
     }    
 
-    if (hideMenuAfterUse == 1)
+    if (hideMenuAfterUse == 1){
         CleanExit()
-}
-
-CleanExit(*){
-    global activeHotkeys, isGuiShowed
-    
-    for hotkeyName, callback in activeHotkeys {
-        try Hotkey(hotkeyName, "Off")
+    }else{
+        ToolTip "Done"
+        SetTimer () => ToolTip(), -750  
+        return   
     }
 
-    activeHotkeys.Clear()
-    MainGui.Hide()
-    isGuiShowed := false
-    try SearchGui.Destroy() 
-}
-
-RefreshMenu(){
-    CleanExit()
-    ShowMenu()
 }
 
 ChangeFolderPath(option){
@@ -204,126 +230,10 @@ ChangeFolderPath(option){
     ShowMenu()
 }
 
-ShowSearchGui(){
-    global SearchGui := Gui("AlwaysOnTop -MinimizeBox", "Insert snippet name")
-    searchPhraseInput := SearchGui.Add("Edit", "w170 h20")
-    SearchGui.Add("Button", "w50 h30 Default", "Search").OnEvent("Click", ((*) => SearchButtonClicked()))
-    SearchGui.Add("Button", "w50 h30 x+10", "Clear").OnEvent("Click", ((f) => (*) => SearchForSnippets(f))(""))
-    SearchGui.Add("Button", "w50 h30 x+10", "Cancel").OnEvent("Click", ((*) => SearchCancel()))
-    SearchGui.Show()
-    SearchGui.OnEvent("Escape",SearchCancel)
-
-    for hotkeyName, callback in activeHotkeys {
-        try Hotkey(hotkeyName, "Off")
-    }
-
-    SearchButtonClicked(){
-        SearchForSnippets(searchPhraseInput.Value)
-    }
-
-    SearchCancel(*){
-        SearchGui.Destroy()
-        for hotkeyName, callback in activeHotkeys {
-            try Hotkey(hotkeyName, "On")
-        }
-    }
-}
-
 SearchForSnippets(phrase){
     global searchPhrase
     searchPhrase := phrase
     RefreshMenu()
-}
-
-ToggleSetting(name) {
-    global
-    try { 
-        %name% := !%name%
-        
-        if (name == "disableMainGuiHotkeys")
-            RefreshMenu()
-        else if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
-            ShowMsgBox("Warning")
-        else if (name == "disableMenuToggleHotkey")
-            SetToggleMenuHotkey()
-
-    } catch as Err {
-        MsgBox("An error occurred while changing the setting", "Error", "Icon! 0x40000")
-    }
-}
-
-ShowMsgBox(info){
-    msg := ""
-    if (info == "Warning"){
-        msg := "No output method enabled. Snippets won't be inserted or copied"
-    }
-    else if (info == "Settings"){
-        msg :=  "insertSnippetIntoActiveWin=" . insertSnippetIntoActiveWin .
-                "`ncopySnippetIntoClipboard=" . copySnippetIntoClipboard .
-                "`ndisableMainGuiHotkeys=" . disableMainGuiHotkeys .
-                "`nhideMenuAfterUse=" . hideMenuAfterUse .
-                "`ndisableMenuToggleHotkey=" . disableMenuToggleHotkey
-    }
-    else if (info == "About"){
-        msg :=  "Default folder path`n  " . defaultFolderPath . "`n`n" . 
-                "Default toggle menu hotkey (can be done from systray)`n  Shift + Ctrl + Q`n`n" . 
-                "To use MenuBar press`n  Alt + {underlined letter of menubar option}`n`n" .
-                "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'" .
-                "`n`nDocJnt©"
-    }
-    MsgBox msg, info, "OK 0x40000"
-}
-
-GetConfigs(){
-    path := A_ScriptDir . "\Files"
-    global defaultFolderPath := IniRead("config.ini", "Settings", "DefaultFolderPath", path)
-    if (defaultFolderPath == "")
-        defaultFolderPath := path
-    global folderPath := defaultFolderPath
-    
-    defaultToggleMenuHotkey := "+^q"
-    global toggleMenuHotkey := IniRead("config.ini", "Settings", "ToggleMenuHotkey", defaultToggleMenuHotkey)
-    if (toggleMenuHotkey == "")    
-        toggleMenuHotkey := defaultToggleMenuHotkey
-
-    global insertSnippetIntoActiveWin := IniRead("config.ini", "Settings", "InsertSnippetIntoActiveWin", 0)
-    if (!IsBoolean(insertSnippetIntoActiveWin))   
-        insertSnippetIntoActiveWin := 0
-
-    global copySnippetIntoClipboard := IniRead("config.ini", "Settings", "CopySnippetIntoClipboard", 1)
-    if (!IsBoolean(copySnippetIntoClipboard)) 
-        copySnippetIntoClipboard := 1
-
-    global disableMainGuiHotkeys := IniRead("config.ini", "Settings", "DisableMainGuiHotkeys", 0)
-    if (!IsBoolean(disableMainGuiHotkeys)) 
-        disableMainGuiHotkeys := 0
-
-    global hideMenuAfterUse := IniRead("config.ini", "Settings", "HideMenuAfterUse", 1)
-    if (!IsBoolean(hideMenuAfterUse))   
-        hideMenuAfterUse := 1
-    
-    global disableMenuToggleHotkey := IniRead("config.ini", "Settings", "DisableMenuToggleHotkey", 0)
-    if (!IsBoolean(disableMenuToggleHotkey))   
-        disableMenuToggleHotkey := 0
-    SetToggleMenuHotkey()
-
-    global searchPhrase := ""
-    global fileOrderingSeparator := "$"
-    global isGuiShowed := false
-    global scirptName := SubStr(A_ScriptName,1,InStr(A_ScriptName,'.')-1)
-
-    IsBoolean(value) => value == true || value == false
-}
-
-SetToggleMenuHotkey(){
-    try{
-        if (disableMenuToggleHotkey == 0){
-            Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
-            Hotkey(toggleMenuHotkey, "On")
-        }else{
-            Hotkey(toggleMenuHotkey, "Off")
-        }
-    }
 }
 
 class Item{
@@ -381,3 +291,143 @@ GetFilesFromDirectory(){
 
     return Items
 }
+
+;-------------------------
+;--> Script config section
+
+GetConfigs(){
+    path := A_ScriptDir . "\Files"
+    global defaultFolderPath := IniRead("config.ini", "Settings", "defaultFolderPath", path)
+    if (defaultFolderPath == "")
+        defaultFolderPath := path
+    global folderPath := defaultFolderPath
+    
+    defaultToggleMenuHotkey := "+^q"
+    global toggleMenuHotkey := IniRead("config.ini", "Settings", "toggleMenuHotkey", defaultToggleMenuHotkey)
+    if (toggleMenuHotkey == "")    
+        toggleMenuHotkey := defaultToggleMenuHotkey
+
+    global insertSnippetIntoActiveWin := IniRead("config.ini", "Settings", "insertSnippetIntoActiveWin", 0)
+    if (!IsBoolean(insertSnippetIntoActiveWin))   
+        insertSnippetIntoActiveWin := 0
+
+    global copySnippetIntoClipboard := IniRead("config.ini", "Settings", "copySnippetIntoClipboard", 1)
+    if (!IsBoolean(copySnippetIntoClipboard)) 
+        copySnippetIntoClipboard := 1
+
+    global disableMainGuiHotkeys := IniRead("config.ini", "Settings", "disableMainGuiHotkeys", 0)
+    if (!IsBoolean(disableMainGuiHotkeys)) 
+        disableMainGuiHotkeys := 0
+
+    global hideMenuAfterUse := IniRead("config.ini", "Settings", "hideMenuAfterUse", 1)
+    if (!IsBoolean(hideMenuAfterUse))   
+        hideMenuAfterUse := 1
+    
+    global disableMenuToggleHotkey := IniRead("config.ini", "Settings", "disableMenuToggleHotkey", 0)
+    if (!IsBoolean(disableMenuToggleHotkey))   
+        disableMenuToggleHotkey := 0
+    
+    if (disableMenuToggleHotkey == 0)
+        Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
+
+    global searchPhrase := ""
+    global fileOrderingSeparator := "$"
+    global isGuiShowed := false
+    global scirptName := SubStr(A_ScriptName,1,InStr(A_ScriptName,'.')-1)
+
+    IsBoolean(value) => value == 1 || value == 0
+
+    ;--> Tray configuration
+    A_IconTip := scirptName
+    Tray := A_TrayMenu
+    Tray.Delete()
+    Tray.Add("&Toggle menu",(*) => ToggleMenu())
+    Tray.Default := ("1&")
+    Tray.Add("E&xit app",(*) => (SetTimer(ExitApp.Bind(), -100)))
+
+    ;--> Menu bar configuration
+    FileMenu := Menu()
+    FileMenu.Add("Open &folder in file explorer", (*) => Run(folderPath)) 
+    FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
+    FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
+    FileMenu.Add("P&arent folder", ((f) => (*) => ChangeFolderPath(f))("parent"))
+    FileMenu.Add("--", ((*) => Sleep(1)))
+    FileMenu.Add("Hide menu", CleanExit)
+    FileMenu.Add("Exit app", (*) => (SetTimer(ExitApp.Bind(), -100)))
+
+    SearchMenu := Menu()
+    SearchMenu.Add("&Serach for snippet",((*) => ShowSearchGui()))
+    SearchMenu.Add("&Clear search input",((f) => (*) => SearchForSnippets(f))(""))
+
+    SettingsMenu := Menu()
+    SettingsMenu.Add("--", ((*) => Sleep(1)))
+    SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
+    SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
+    SettingsMenu.Add("Toggle disableMainGuiHotkeys", ((f) => (*) => ToggleSetting(f))("disableMainGuiHotkeys"))
+    SettingsMenu.Add("Toggle hideMenuAfterUse", ((f) => (*) => ToggleSetting(f))("hideMenuAfterUse"))
+;    SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
+    SettingsMenu.Add("----", ((*) => Sleep(1)))
+    SettingsMenu.Add("Set this folder as a default", (*) => SetDefaultFolder())
+    SettingsMenu.Add("------", ((*) => Sleep(1)))
+    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("Settings"))
+    SettingsMenu.Add("About", ((f) => (*) => ShowMsgBox(f))("About"))
+
+    global Menus := MenuBar()
+    Menus.Add("&File", FileMenu)
+    Menus.Add("&Search", SearchMenu)
+    Menus.Add("Settings", SettingsMenu)
+}
+
+ToggleSetting(name) {
+    global
+    try { 
+        %name% := !%name%
+        
+        if (name == "disableMainGuiHotkeys")
+            RefreshMenu()
+        else if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
+            ShowMsgBox("Warning")
+        ;else if (name == "disableMenuToggleHotkey")
+        ;    SetToggleMenuHotkey()
+    } catch as Err {
+        MsgBox("An error occurred while changing the setting", "Error", "Icon! 0x40000")
+    }
+    SetConfig()
+}
+
+SetDefaultFolder(){
+    global defaultFolderPath := folderPath
+    SetConfig()
+}
+
+;SetToggleMenuHotkey(){
+;   try {
+;       try Hotkey(toggleMenuHotkey, "Off")
+;       
+;       if (disableMenuToggleHotkey == 0) {
+;           Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
+;           Hotkey(toggleMenuHotkey, "On")
+;       }
+;   } catch Error as e {
+;       MsgBox "Error setting toggle hotkey: " e.Message
+;   }
+;}
+
+SetConfig(){
+    path := A_ScriptDir . "\config.ini"
+    if(FileExist(path) == "")
+        try FileAppend "", path, "UTF-8"
+
+    IniWrite(GetSettingsString(), path, "Settings")
+}
+
+GetSettingsString(){
+    return          "defaultFolderPath=" . defaultFolderPath .
+            "`n" .  "toggleMenuHotkey=" . toggleMenuHotkey .
+            "`n" .  "insertSnippetIntoActiveWin=" . insertSnippetIntoActiveWin .
+            "`n" .  "copySnippetIntoClipboard=" . copySnippetIntoClipboard .
+            "`n" .  "disableMainGuiHotkeys=" . disableMainGuiHotkeys .
+            "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse 
+;          .  "`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
+}
+
