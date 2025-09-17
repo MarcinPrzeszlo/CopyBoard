@@ -56,7 +56,7 @@ ShowMenu(){
     
     rowCounter := 0
 
-    ; Create buttons for each file
+    ;--> Create buttons for each file
     for index, File in Files {
         index := A_Index
         rowCounter := rowCounter + 1
@@ -75,6 +75,30 @@ ShowMenu(){
             fileName := "   " . fileName
         }
 
+        maxLineLen := 25
+        lineCounter := 1
+        tempNamePhrase := fileName
+        fileName := ""
+
+        while (StrLen(tempNamePhrase) > maxLineLen && lineCounter <= 3){
+            phrasePart := SubStr(tempNamePhrase, 1, maxLineLen)
+
+            phraseLen := InStr(phrasePart, " ", ,maxLineLen-4)
+            if (phraseLen == 0)
+                phraseLen := InStr(phrasePart, "_", ,maxLineLen-4)
+            if (phraseLen == 0)
+                phraseLen := maxLineLen-1
+            
+            fileName := fileName . SubStr(tempNamePhrase, 1, phraseLen) 
+            
+            if (lineCounter < 3)
+                fileName := fileName . "`n      "
+            tempNamePhrase := SubStr(tempNamePhrase, phraseLen + 1) 
+            lineCounter := lineCounter + 1
+        }
+        if (lineCounter < 3)
+            fileName := fileName . tempNamePhrase
+
         if (isFolder == "D")
             callback := ((f) => (*) => ChangeFolderPath(f))(filePath)
         else
@@ -90,7 +114,7 @@ ShowMenu(){
         }        
         
         if (disableMainGuiHotkeys == 0){
-            if (index <= 9){                               ; Hotkey - 1-9 & num1-num9
+            if (index <= 9){                               ;--> Hotkey - 1-9 & num1-num9
                 try hotkeyNameNumpad := "Numpad" . index    
                 try hotkeyNameNumeric := index
 
@@ -102,7 +126,7 @@ ShowMenu(){
                 try Hotkey(hotkeyNameNumeric,"On")  
                 activeHotkeys[hotkeyNameNumeric] := callback
             }
-            else if (index <= 18){                         ; Hotkey - F1-F9
+            else if (index <= 18){                         ;--> Hotkey - F1-F9
                 hotkeyNameFunction := "F" . index - 9       
 
                 try Hotkey(hotkeyNameFunction, callback)      
@@ -149,8 +173,8 @@ ShowMsgBox(info){
         msg :=  GetSettingsString()
     }
     else if (info == "About"){
-        msg :=  "Default toggle menu hotkey`n  Shift + Ctrl + Q`n`n" . 
-                "To use MenuBar press`n  Alt + {underlined letter of menubar option}`n`n" .
+        msg :=  "Toggle menu hotkey`n  Key combination: " . toggleMenuHotkey . "`n  Modifiers symbols: Alt -> !  Control -> ^  Shift -> +`n`n" .
+                "Alternative way to use MenuBar`n  Alt + {underlined letter of menubar option}`n`n" .
                 "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'" .
                 "`n`nDocJnt©"
     }
@@ -207,7 +231,7 @@ CopyFileContent(filePath){
 }
 
 ChangeFolderPath(option){
-    global folderPath
+    global folderPath, searchPhrase
     CleanExit()
     
     if (option == "select"){
@@ -227,6 +251,7 @@ ChangeFolderPath(option){
         folderPath := option
     }
     
+    searchPhrase := ""
     ShowMenu()
 }
 
@@ -351,7 +376,7 @@ GetConfigs(){
     FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
     FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
     FileMenu.Add("P&arent folder", ((f) => (*) => ChangeFolderPath(f))("parent"))
-    FileMenu.Add("--", ((*) => Sleep(1)))
+    FileMenu.Add("----", ((*) => Sleep(1)))
     FileMenu.Add("Hide menu", CleanExit)
     FileMenu.Add("Exit app", (*) => (SetTimer(ExitApp.Bind(), -100)))
 
@@ -360,17 +385,17 @@ GetConfigs(){
     SearchMenu.Add("&Clear search input",((f) => (*) => SearchForSnippets(f))(""))
 
     SettingsMenu := Menu()
-    SettingsMenu.Add("--", ((*) => Sleep(1)))
+    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("Settings"))
+    SettingsMenu.Add("About", ((f) => (*) => ShowMsgBox(f))("About"))
+    SettingsMenu.Add("----", ((*) => Sleep(1)))
     SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
     SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
     SettingsMenu.Add("Toggle disableMainGuiHotkeys", ((f) => (*) => ToggleSetting(f))("disableMainGuiHotkeys"))
     SettingsMenu.Add("Toggle hideMenuAfterUse", ((f) => (*) => ToggleSetting(f))("hideMenuAfterUse"))
-;    SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
-    SettingsMenu.Add("----", ((*) => Sleep(1)))
+;   SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
+;   SettingsMenu.Add("---- ", ((*) => Sleep(1)))
     SettingsMenu.Add("Set this folder as a default", (*) => SetDefaultFolder())
-    SettingsMenu.Add("------", ((*) => Sleep(1)))
-    SettingsMenu.Add("Show settings",((f) => (*) => ShowMsgBox(f))("Settings"))
-    SettingsMenu.Add("About", ((f) => (*) => ShowMsgBox(f))("About"))
+
 
     global Menus := MenuBar()
     Menus.Add("&File", FileMenu)
@@ -385,7 +410,7 @@ ToggleSetting(name) {
         
         if (name == "disableMainGuiHotkeys")
             RefreshMenu()
-        else if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
+        else if ((name == "insertSnippetIntoActiveWin" || name == "copySnippetIntoClipboard") && insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
             ShowMsgBox("Warning")
         ;else if (name == "disableMenuToggleHotkey")
         ;    SetToggleMenuHotkey()
@@ -428,6 +453,6 @@ GetSettingsString(){
             "`n" .  "copySnippetIntoClipboard=" . copySnippetIntoClipboard .
             "`n" .  "disableMainGuiHotkeys=" . disableMainGuiHotkeys .
             "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse 
-;          .  "`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
+;          ."`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
 }
 
