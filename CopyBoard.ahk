@@ -15,7 +15,7 @@ ToggleMenu(){
         ShowMenu()
 
         if (insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
-            ShowMsgBox("Warning")
+            ShowMsgBox("InputWarning")
     }
 }
 
@@ -166,8 +166,11 @@ ShowSearchGui(){
 
 ShowMsgBox(info){
     msg := ""
-    if (info == "Warning"){
+    if (info == "InputWarning"){
         msg := "No output method enabled. Snippets won't be inserted or copied"
+    }
+    else if (info == "FolderWarning"){
+        msg := "Selected folder doesn't exist. " . scirptName . " redirected to the parent folder"
     }
     else if (info == "Settings"){
         msg :=  GetSettingsString()
@@ -273,6 +276,11 @@ class Item{
 GetFilesFromDirectory(){
     global searchPhrase
 
+    if (DirExist(folderPath) != "D"){
+        ShowMsgBox("FolderWarning")
+        ChangeFolderPath("parent")
+    }
+
     Items := []
     try {
         Loop Files, folderPath "\*.*", "DF" {
@@ -372,7 +380,7 @@ GetConfigs(){
 
     ;--> Menu bar configuration
     FileMenu := Menu()
-    FileMenu.Add("Open &folder in file explorer", (*) => Run(folderPath)) 
+    FileMenu.Add("Reveal in &file explorer", (*) => Run(folderPath)) 
     FileMenu.Add("&Change folder", ((f) => (*) => ChangeFolderPath(f))("select"))
     FileMenu.Add("&Default folder", ((f) => (*) => ChangeFolderPath(f))("default"))
     FileMenu.Add("P&arent folder", ((f) => (*) => ChangeFolderPath(f))("parent"))
@@ -411,7 +419,7 @@ ToggleSetting(name) {
         if (name == "disableMainGuiHotkeys")
             RefreshMenu()
         else if ((name == "insertSnippetIntoActiveWin" || name == "copySnippetIntoClipboard") && insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
-            ShowMsgBox("Warning")
+            ShowMsgBox("InputWarning")
         ;else if (name == "disableMenuToggleHotkey")
         ;    SetToggleMenuHotkey()
     } catch as Err {
