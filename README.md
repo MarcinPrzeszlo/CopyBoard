@@ -22,15 +22,16 @@ Configuration file:
 
 Settings description:
  - ToggleMenuHotkey - hotkey definiton which is used to toggle menu visibility
-      - Modifiers symbols: Alt -> !  Control -> ^  Shift -> +
+     - Modifiers symbols: Alt -> !  Control -> ^  Shift -> +
      - This settings can contain multiple modifiers and one key. See the <a href="https://www.autohotkey.com/docs/v2/KeyList.htm">Key List</a> for options. 
      - Example: ^!1 -> Control & Alt & 1
        
 - DefaultFolderPath - absolute path to the folder where text snippets are stored.
 - InsertSnippetIntoActiveWin [0,1] - If 1, the selected snippet is inserted into the window that was active before the GUI was displayed.
 - CopySnippetIntoClipboard [0,1] - If 1, the selected snippet is inserted into clipboard.
-- DisableMainGuiHotkeys [0,1] - If 1, the keys 1-9 and F1-F9 will not be bound to snippet selection .
+- DisableSnippetHotkeys [0,1] - If 1, the keys 1-9 and F1-F9 will not be bound to snippet selection.
 - HideMenuAfterUse [0,1] - If 1, the menu will automatically hide after a snippet is selected.
+- DisableMenuToggleHotkey [0,1] - If 1, the ToggleMenuHotkey will be disabled.
 
 
 Requirements: 
