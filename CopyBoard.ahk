@@ -177,10 +177,10 @@ ShowMsgBox(info){
         msg :=  GetSettingsString()
     }
     else if (info == "About"){
-        msg :=  "Toggle menu hotkey`n  Key combination: " . toggleMenuHotkey . "`n  Modifiers symbols: Alt -> !  Control -> ^  Shift -> +`n`n" .
+        msg :=  "Toggle menu hotkey`n  Key combination: " . menuToggleHotkey . "`n  Modifiers symbols: Alt -> !  Control -> ^  Shift -> +`n`n" .
                 "Alternative way to use MenuBar`n  Alt + {underlined letter of menubar option}`n`n" .
-                "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'" .
-                "`n`nDocJnt©"
+                "File ordering`n  For ordered files, use numbered prefixes with a dollar sign.`n  The prefix length must be the same for all files.`n  For example: '23$File', '24$File2'`n`n" .
+                "DocJnt©"
     }
     MsgBox msg, info, "OK 0x40000"
 }
@@ -204,11 +204,11 @@ CopyFileContent(filePath){
 
         A_Clipboard := fileContent
         if (!ClipWait(1)){
-            MsgBox("Clipboard copy timed out!", "Error", "Icon! 0x40000")
+            MsgBox("Clipboard copy timed out", "Error", "Icon! 0x40000")
              return
         }
-    } catch as Err {
-        MsgBox("Failed to read file", "Error", "Icon! 0x40000")
+    } catch Error as e {
+        MsgBox("An error occurred while reading file: " . e.Message, "Error", "Icon! 0x40000")
     }
 
     if (insertSnippetIntoActiveWin == 1){
@@ -229,9 +229,7 @@ CopyFileContent(filePath){
     }else{
         ToolTip "Done"
         SetTimer () => ToolTip(), -750  
-        return   
     }
-
 }
 
 ChangeFolderPath(option){
@@ -310,8 +308,8 @@ GetFilesFromDirectory(){
                 Items.Push(Item(fileName, A_LoopFilePath, extension, isFolder))
             }
         }
-    } catch as Err {
-        MsgBox("Error reading files", "Error", "Icon! 0x40000")
+    } catch Error as e {
+        MsgBox("An error occurred while reading files: " . e.Message, "Error", "Icon! 0x40000")
     }
 
     if (Items.Length == 0){
@@ -336,10 +334,10 @@ GetConfigs(){
         defaultFolderPath := path
     global folderPath := defaultFolderPath
     
-    defaultToggleMenuHotkey := "+^q"
-    global toggleMenuHotkey := IniRead("config.ini", "Settings", "toggleMenuHotkey", defaultToggleMenuHotkey)
-    if (toggleMenuHotkey == "")    
-        toggleMenuHotkey := defaultToggleMenuHotkey
+    defaultmenuToggleHotkey := "+^q"
+    global menuToggleHotkey := IniRead("config.ini", "Settings", "menuToggleHotkey", defaultmenuToggleHotkey)
+    if (menuToggleHotkey == "")    
+        menuToggleHotkey := defaultmenuToggleHotkey
 
     global insertSnippetIntoActiveWin := IniRead("config.ini", "Settings", "insertSnippetIntoActiveWin", 0)
     if (!IsBoolean(insertSnippetIntoActiveWin))   
@@ -360,7 +358,7 @@ GetConfigs(){
     global disableMenuToggleHotkey := IniRead("config.ini", "Settings", "disableMenuToggleHotkey", 0)
     if (!IsBoolean(disableMenuToggleHotkey))   
         disableMenuToggleHotkey := 0
-    SetToggleMenuHotkey()
+    SetMenuToggleHotkey()
 
     global searchPhrase := ""
     global fileOrderingSeparator := "$"
@@ -419,9 +417,9 @@ ToggleSetting(name) {
         else if ((name == "insertSnippetIntoActiveWin" || name == "copySnippetIntoClipboard") && insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
             ShowMsgBox("InputWarning")
         else if (name == "disableMenuToggleHotkey")
-            SetToggleMenuHotkey()
-    } catch as Err {
-        MsgBox("An error occurred while changing the setting", "Error", "Icon! 0x40000")
+            SetMenuToggleHotkey()
+    } catch Error as e {
+        MsgBox("An error occurred while changing the setting: " . e.Message, "Error", "Icon! 0x40000")
     }
     SetConfig()
 }
@@ -431,16 +429,16 @@ SetDefaultFolder(){
     SetConfig()
 }
 
-SetToggleMenuHotkey(){
+SetMenuToggleHotkey(){
    try {
-       try Hotkey(toggleMenuHotkey, "Off")
+       try Hotkey(menuToggleHotkey, "Off")
        
        if (disableMenuToggleHotkey == 0) {
-           Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
-           Hotkey(toggleMenuHotkey, "On")
+           Hotkey(menuToggleHotkey, (*) => ToggleMenu())
+           Hotkey(menuToggleHotkey, "On")
        }
    } catch Error as e {
-       MsgBox "Error setting toggle hotkey: " e.Message
+       MsgBox("An error occurred while setting toggle hotkey: " . e.Message, "Error", "Icon! 0x40000")
    }
 }
 
@@ -454,11 +452,11 @@ SetConfig(){
 
 GetSettingsString(){
     return          "defaultFolderPath=" . defaultFolderPath .
-            "`n" .  "toggleMenuHotkey=" . toggleMenuHotkey .
+            "`n" .  " =" . menuToggleHotkey .
             "`n" .  "insertSnippetIntoActiveWin=" . insertSnippetIntoActiveWin .
             "`n" .  "copySnippetIntoClipboard=" . copySnippetIntoClipboard .
             "`n" .  "disableSnippetHotkeys=" . disableSnippetHotkeys .
-            "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse .
-            "`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
+            "`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey .
+            "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse
 }
 
