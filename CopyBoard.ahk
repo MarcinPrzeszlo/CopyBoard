@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force               
+Persistent
 GetConfigs()
 
 ;----------------
@@ -65,10 +66,10 @@ ShowMenu(){
         filePath := File.FilePath
         isFolder := File.IsFolder
 
-        if (index <= 9 && disableMainGuiHotkeys == 0){
+        if (index <= 9 && disableSnippetHotkeys == 0){
             fileName := index . ". " . fileName
         }
-        else if (index <= 18 && disableMainGuiHotkeys == 0){
+        else if (index <= 18 && disableSnippetHotkeys == 0){
             fileName := "F" . index - 9 . ". " . fileName
         }
         else {
@@ -113,7 +114,7 @@ ShowMenu(){
             rowCounter := 0
         }        
         
-        if (disableMainGuiHotkeys == 0){
+        if (disableSnippetHotkeys == 0){
             if (index <= 9){                               ;--> Hotkey - 1-9 & num1-num9
                 try hotkeyNameNumpad := "Numpad" . index    
                 try hotkeyNameNumeric := index
@@ -167,10 +168,10 @@ ShowSearchGui(){
 ShowMsgBox(info){
     msg := ""
     if (info == "InputWarning"){
-        msg := "No output method enabled. Snippets won't be inserted or copied"
+        msg := "No output method enabled. Snippets won't be inserted or copied."
     }
     else if (info == "FolderWarning"){
-        msg := "Selected folder doesn't exist. " . scirptName . " redirected to the parent folder"
+        msg := "Selected folder doesn't exist. " . scirptName . " redirected to the parent folder."
     }
     else if (info == "Settings"){
         msg :=  GetSettingsString()
@@ -348,9 +349,9 @@ GetConfigs(){
     if (!IsBoolean(copySnippetIntoClipboard)) 
         copySnippetIntoClipboard := 1
 
-    global disableMainGuiHotkeys := IniRead("config.ini", "Settings", "disableMainGuiHotkeys", 0)
-    if (!IsBoolean(disableMainGuiHotkeys)) 
-        disableMainGuiHotkeys := 0
+    global disableSnippetHotkeys := IniRead("config.ini", "Settings", "disableSnippetHotkeys", 0)
+    if (!IsBoolean(disableSnippetHotkeys)) 
+        disableSnippetHotkeys := 0
 
     global hideMenuAfterUse := IniRead("config.ini", "Settings", "hideMenuAfterUse", 1)
     if (!IsBoolean(hideMenuAfterUse))   
@@ -359,9 +360,7 @@ GetConfigs(){
     global disableMenuToggleHotkey := IniRead("config.ini", "Settings", "disableMenuToggleHotkey", 0)
     if (!IsBoolean(disableMenuToggleHotkey))   
         disableMenuToggleHotkey := 0
-    
-    if (disableMenuToggleHotkey == 0)
-        Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
+    SetToggleMenuHotkey()
 
     global searchPhrase := ""
     global fileOrderingSeparator := "$"
@@ -398,10 +397,9 @@ GetConfigs(){
     SettingsMenu.Add("----", ((*) => Sleep(1)))
     SettingsMenu.Add("Toggle insertSnippetIntoActiveWin", ((f) => (*) => ToggleSetting(f))("insertSnippetIntoActiveWin"))
     SettingsMenu.Add("Toggle copySnippetIntoClipboard", ((f) => (*) => ToggleSetting(f))("copySnippetIntoClipboard"))
-    SettingsMenu.Add("Toggle disableMainGuiHotkeys", ((f) => (*) => ToggleSetting(f))("disableMainGuiHotkeys"))
+    SettingsMenu.Add("Toggle disableSnippetHotkeys", ((f) => (*) => ToggleSetting(f))("disableSnippetHotkeys"))
     SettingsMenu.Add("Toggle hideMenuAfterUse", ((f) => (*) => ToggleSetting(f))("hideMenuAfterUse"))
-;   SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
-;   SettingsMenu.Add("---- ", ((*) => Sleep(1)))
+    SettingsMenu.Add("Toggle disableMenuToggleHotkey", ((f) => (*) => ToggleSetting(f))("disableMenuToggleHotkey"))
     SettingsMenu.Add("Set this folder as a default", (*) => SetDefaultFolder())
 
 
@@ -416,12 +414,12 @@ ToggleSetting(name) {
     try { 
         %name% := !%name%
         
-        if (name == "disableMainGuiHotkeys")
+        if (name == "disableSnippetHotkeys")
             RefreshMenu()
         else if ((name == "insertSnippetIntoActiveWin" || name == "copySnippetIntoClipboard") && insertSnippetIntoActiveWin == 0 && copySnippetIntoClipboard == 0)
             ShowMsgBox("InputWarning")
-        ;else if (name == "disableMenuToggleHotkey")
-        ;    SetToggleMenuHotkey()
+        else if (name == "disableMenuToggleHotkey")
+            SetToggleMenuHotkey()
     } catch as Err {
         MsgBox("An error occurred while changing the setting", "Error", "Icon! 0x40000")
     }
@@ -433,18 +431,18 @@ SetDefaultFolder(){
     SetConfig()
 }
 
-;SetToggleMenuHotkey(){
-;   try {
-;       try Hotkey(toggleMenuHotkey, "Off")
-;       
-;       if (disableMenuToggleHotkey == 0) {
-;           Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
-;           Hotkey(toggleMenuHotkey, "On")
-;       }
-;   } catch Error as e {
-;       MsgBox "Error setting toggle hotkey: " e.Message
-;   }
-;}
+SetToggleMenuHotkey(){
+   try {
+       try Hotkey(toggleMenuHotkey, "Off")
+       
+       if (disableMenuToggleHotkey == 0) {
+           Hotkey(toggleMenuHotkey, (*) => ToggleMenu())
+           Hotkey(toggleMenuHotkey, "On")
+       }
+   } catch Error as e {
+       MsgBox "Error setting toggle hotkey: " e.Message
+   }
+}
 
 SetConfig(){
     path := A_ScriptDir . "\config.ini"
@@ -459,8 +457,8 @@ GetSettingsString(){
             "`n" .  "toggleMenuHotkey=" . toggleMenuHotkey .
             "`n" .  "insertSnippetIntoActiveWin=" . insertSnippetIntoActiveWin .
             "`n" .  "copySnippetIntoClipboard=" . copySnippetIntoClipboard .
-            "`n" .  "disableMainGuiHotkeys=" . disableMainGuiHotkeys .
-            "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse 
-;          ."`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
+            "`n" .  "disableSnippetHotkeys=" . disableSnippetHotkeys .
+            "`n" .  "hideMenuAfterUse=" . hideMenuAfterUse .
+            "`n" .  "disableMenuToggleHotkey=" . disableMenuToggleHotkey
 }
 
