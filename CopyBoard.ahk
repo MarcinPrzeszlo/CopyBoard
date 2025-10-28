@@ -329,7 +329,7 @@ class HotkeyManager {
 
     static EnableSnippetHotkeys() {
         for hotkeyName, callback in ScriptManager.State.activeHotkeys {
-            try Hotkey(hotkeyName, "Off")
+            try Hotkey(hotkeyName, "On")
         }
     }
 
